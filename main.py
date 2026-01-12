@@ -192,7 +192,8 @@ class Main:
         """Просмотр списка лекарств."""
         print("\nПросмотр списка лекарств!")
 
-        lst = DrugsTable().all()
+        drugs_table = DrugsTable()
+        lst = drugs_table.all()
         if not lst:
             print("Нет лекарств в базе.")
             menu = """\nДальнейшие операции:
@@ -201,17 +202,28 @@ class Main:
             print(menu)
             return
 
-        # Получаем названия аптек для отображения
+        # Получаем список имён колонок
+        col_names = drugs_table.column_names()
+        
+        # Находим индексы нужных колонок
+        drug_name_idx = col_names.index("drug_name")
+        dosage_idx = col_names.index("dosage")
+        qty_idx = col_names.index("quantity_or_volume")
+        manuf_idx = col_names.index("manufacturer")
+        price_idx = col_names.index("price")
+        pharmacy_id_idx = col_names.index("pharmacy_id")
+
+        # Получаем названия аптек
         ph_table = PharmaciesTable()
         pharmacies = {row[0]: row[1] for row in ph_table.all()}  # {id: address}
 
         # Вычисляем ширину колонок
-        max_name = max(len(str(i[1])) for i in lst)
-        max_dosage = max(len(str(i[2] or "")) for i in lst)
-        max_qty = max(len(str(i[3] or "")) for i in lst)
-        max_manuf = max(len(str(i[4] or "")) for i in lst)
-        max_pharmacy = max(len(pharmacies.get(i[8], "—")) for i in lst)  # адрес аптеки
-        max_price = max(len(f"{float(i[7]):.2f}") for i in lst)  # ← исправлено
+        max_name = max(len(str(row[drug_name_idx])) for row in lst)
+        max_dosage = max(len(str(row[dosage_idx] or "")) for row in lst)
+        max_qty = max(len(str(row[qty_idx] or "")) for row in lst)
+        max_manuf = max(len(str(row[manuf_idx] or "")) for row in lst)
+        max_pharmacy = max(len(pharmacies.get(row[pharmacy_id_idx], "—")) for row in lst)
+        max_price = max(len(f"{float(row[price_idx]):.2f}") for row in lst)
 
         col_widths = {
             'name': max(max_name, len('Название')) + 2,
@@ -234,13 +246,13 @@ class Main:
         print("-" * len(header))
 
         for row in lst:
-            pharmacy_addr = pharmacies.get(row[8], "—")
-            price_str = f"{float(row[7]):.2f}"
+            pharmacy_addr = pharmacies.get(row[pharmacy_id_idx], "—")
+            price_str = f"{float(row[price_idx]):.2f}"
             print(
-                f"{row[1]:<{col_widths['name']}}"
-                f"{(row[2] or ''):<{col_widths['dosage']}}"
-                f"{(row[3] or ''):<{col_widths['qty']}}"
-                f"{(row[4] or ''):<{col_widths['manuf']}}"
+                f"{row[drug_name_idx]:<{col_widths['name']}}"
+                f"{(row[dosage_idx] or ''):<{col_widths['dosage']}}"
+                f"{(row[qty_idx] or ''):<{col_widths['qty']}}"
+                f"{(row[manuf_idx] or ''):<{col_widths['manuf']}}"
                 f"{pharmacy_addr:<{col_widths['pharmacy']}}"
                 f"{price_str}".ljust(col_widths['price'])
             )
