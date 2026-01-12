@@ -2,7 +2,7 @@
 Ксенофонтов Константин Владимирович
 Вариант №22
 
-Система управления аптекой: аптеки и лекарства со связью.
+Система управления лекарствами: категории и лекарства со связью.
 Интерфейс использует только понятные пользователю данные (без ID).
 '''
 import sys
@@ -11,7 +11,7 @@ sys.path.append('tables')
 
 from dbconnection import DbConnection
 from project_config import ProjectConfig
-from tables.pharmacies import PharmaciesTable
+from tables.drug_categories import DrugCategoriesTable
 from tables.drugs import DrugsTable
 
 
@@ -26,37 +26,39 @@ class Main:
 
     def db_init(self):
         """Создаёт таблицы в правильном порядке."""
-        pharmacies = PharmaciesTable()
+        categories = DrugCategoriesTable()
         drugs = DrugsTable()
-        pharmacies.create()
+        categories.create()
         drugs.create()
 
     def db_insert_somethings(self):
-        """Заполняет таблицы тестовыми данными с привязкой лекарств к аптекам."""
-        ph = PharmaciesTable()
+        """Заполняет таблицы тестовыми данными."""
+        cat = DrugCategoriesTable()
         dr = DrugsTable()
 
-        ph1_id = ph.insert_one(["ул. Ленина, 10", "+74951234567", "Охотный Ряд"])
-        ph2_id = ph.insert_one(["пр. Мира, 25", "+74959876543", "Комсомольская"])
+        # Добавляем категории
+        cat1_id = cat.insert_one(["Обезболивающие"])
+        cat2_id = cat.insert_one(["Антибиотики"])
 
+        # Добавляем лекарства
         dr.insert_one("Парацетамол", "500 мг", "20 таблеток", "Фармстандарт",
-                      "Принимать по 1 таблетке каждые 6 часов", False, 50.00, ph1_id)
+                      "Принимать по 1 таблетке каждые 6 часов", False, 50.00, cat1_id)
         dr.insert_one("Аспирин", "300 мг", "10 таблеток", "Байер",
-                      "Перед едой", True, 120.50, ph1_id)
-        dr.insert_one("Нурофен", "200 мг", "16 таблеток", "Reckitt",
-                      "При боли", False, 85.00, ph2_id)
+                      "Перед едой", True, 120.50, cat1_id)
+        dr.insert_one("Амоксициллин", "250 мг", "14 капсул", "Фармация",
+                      "По назначению врача", True, 200.00, cat2_id)
 
     def db_drop(self):
         """Удаляет таблицы в обратном порядке."""
         drugs = DrugsTable()
-        pharmacies = PharmaciesTable()
+        categories = DrugCategoriesTable()
         drugs.drop()
-        pharmacies.drop()
+        categories.drop()
 
     def show_main_menu(self):
-        menu = """\nДобро пожаловать в систему управления аптекой!
+        menu = """\nДобро пожаловать в систему управления лекарствами!
 Основное меню:
-    1 - управление аптеками;
+    1 - управление категориями;
     2 - сброс и инициализация таблиц;
     9 - выход."""
         print(menu)
@@ -72,7 +74,7 @@ class Main:
             print("\nТаблицы созданы заново!")
             return "0"
         elif next_step == "1":
-            self.pharmacy_menu()
+            self.categories_menu()
             return "0"
         elif next_step == "9":
             return "9"
@@ -80,176 +82,112 @@ class Main:
             print("\nНеверный выбор!")
             return "0"
 
-    # ─────────────── РАБОТА С АПТЕКАМИ ───────────────
+    # ─────────────── РАБОТА С КАТЕГОРИЯМИ ───────────────
 
-    def show_pharmacies_list(self):
-        """Показывает только список аптек без возврата данных."""
-        ph_table = PharmaciesTable()
-        pharmacies = ph_table.all()
-        if not pharmacies:
-            print("Нет аптек в базе.")
+    def select_category_for_drugs(self):
+        """Позволяет выбрать категорию для управления лекарствами."""
+        cat_table = DrugCategoriesTable()
+        categories = cat_table.all()
+        if not categories:
+            print("Нет категорий в базе.")
             return
 
-        col_names = ph_table.column_names()
-        addr_idx = col_names.index("address")
-        phone_idx = col_names.index("phone_number")
-        metro_idx = col_names.index("nearest_metro_station")
+        col_names = cat_table.column_names()
+        id_idx = col_names.index("category_id")
+        name_idx = col_names.index("category_name")
 
-        print("\nСписок аптек:")
-        for i, ph in enumerate(pharmacies, 1):
-            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
-
-    def add_pharmacy(self):
-        """Добавляет новую аптеку."""
-        print("\nДобавление новой аптеки")
-        address = input("Адрес: ").strip()
-        phone = input("Телефон: ").strip()
-        metro = input("Ближайшее метро: ").strip()
-
-        if not all([address, phone, metro]):
-            print("Все поля обязательны!")
-            return
-
-        PharmaciesTable().insert_one([address, phone, metro])
-        print("✅ Аптека успешно добавлена!")
-
-    def delete_pharmacy_by_number(self):
-        """Удаляет аптеку по порядковому номеру (с каскадным удалением лекарств)."""
-        ph_table = PharmaciesTable()
-        pharmacies = ph_table.all()
-        if not pharmacies:
-            print("Нет аптек в базе.")
-            return
-
-        col_names = ph_table.column_names()
-        id_idx = col_names.index("id")
-        addr_idx = col_names.index("address")
-        phone_idx = col_names.index("phone_number")
-        metro_idx = col_names.index("nearest_metro_station")
-
-        print("\nСписок аптек:")
-        for i, ph in enumerate(pharmacies, 1):
-            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
+        print("\nСписок категорий:")
+        for i, cat in enumerate(categories, 1):
+            print(f"{i}. {cat[name_idx]}")
 
         while True:
-            choice = input("\nВведите номер аптеки для удаления (0 - отмена): ").strip()
+            choice = input("\nВыберите номер категории для работы с лекарствами (0 - отмена): ").strip()
             if choice == "0":
                 return
-            if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
-                pharmacy_id = pharmacies[int(choice) - 1][id_idx]
-                ph_table.delete_with_drugs(pharmacy_id)
-                print(f"\n✅ Аптека №{choice} и все её лекарства удалены.")
-                return
-            else:
-                print("Неверный номер. Попробуйте снова.")
-
-    def edit_pharmacy_by_number(self):
-        """Редактирует аптеку по порядковому номеру."""
-        ph_table = PharmaciesTable()
-        pharmacies = ph_table.all()
-        if not pharmacies:
-            print("Нет аптек в базе.")
-            return
-
-        col_names = ph_table.column_names()
-        id_idx = col_names.index("id")
-        addr_idx = col_names.index("address")
-        phone_idx = col_names.index("phone_number")
-        metro_idx = col_names.index("nearest_metro_station")
-
-        print("\nСписок аптек:")
-        for i, ph in enumerate(pharmacies, 1):
-            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
-
-        while True:
-            choice = input("\nВведите номер аптеки для редактирования (0 - отмена): ").strip()
-            if choice == "0":
-                return
-            if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
-                ph = pharmacies[int(choice) - 1]
-                pharmacy_id = ph[id_idx]
-
-                print(f"\nРедактирование аптеки №{choice}")
-                new_address = input(f"Новый адрес ({ph[addr_idx]}): ").strip() or ph[addr_idx]
-                new_phone = input(f"Новый телефон ({ph[phone_idx]}): ").strip() or ph[phone_idx]
-                new_metro = input(f"Новое метро ({ph[metro_idx]}): ").strip() or ph[metro_idx]
-
-                ph_table.update_by_id(pharmacy_id, new_address, new_phone, new_metro)
-                print("\n✅ Аптека успешно обновлена!")
+            if choice.isdigit() and 1 <= int(choice) <= len(categories):
+                cat = categories[int(choice) - 1]
+                category_id = cat[id_idx]
+                category_name = cat[name_idx]
+                self.drugs_menu_for_category(category_id, category_name)
                 return
             else:
                 print("Неверный номер.")
 
-    def select_pharmacy_for_drugs(self):
-        """Позволяет выбрать аптеку для управления лекарствами."""
-        ph_table = PharmaciesTable()
-        pharmacies = ph_table.all()
-        if not pharmacies:
-            print("Нет аптек в базе.")
+    def add_category(self):
+        """Добавляет новую категорию."""
+        print("\nДобавление новой категории")
+        name = input("Название категории: ").strip()
+        if not name:
+            print("Название обязательно!")
+            return
+        DrugCategoriesTable().insert_one([name])
+        print("✅ Категория успешно добавлена!")
+
+    def delete_category_by_number(self):
+        """Удаляет категорию по номеру."""
+        cat_table = DrugCategoriesTable()
+        categories = cat_table.all()
+        if not categories:
+            print("Нет категорий в базе.")
             return
 
-        col_names = ph_table.column_names()
-        id_idx = col_names.index("id")
-        addr_idx = col_names.index("address")
-        phone_idx = col_names.index("phone_number")
-        metro_idx = col_names.index("nearest_metro_station")
+        col_names = cat_table.column_names()
+        id_idx = col_names.index("category_id")
+        name_idx = col_names.index("category_name")
 
-        print("\nСписок аптек:")
-        for i, ph in enumerate(pharmacies, 1):
-            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
+        print("\nСписок категорий:")
+        for i, cat in enumerate(categories, 1):
+            print(f"{i}. {cat[name_idx]}")
 
         while True:
-            choice = input("\nВыберите номер аптеки для работы с лекарствами (0 - отмена): ").strip()
+            choice = input("\nВведите номер категории для удаления (0 - отмена): ").strip()
             if choice == "0":
                 return
-            if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
-                ph = pharmacies[int(choice) - 1]
-                pharmacy_id = ph[id_idx]
-                pharmacy_address = ph[addr_idx]
-                self.drugs_menu_for_pharmacy(pharmacy_id, pharmacy_address)
+            if choice.isdigit() and 1 <= int(choice) <= len(categories):
+                category_id = categories[int(choice) - 1][id_idx]
+                # Удаляем категорию (и все её лекарства через CASCADE)
+                sql = f"DELETE FROM {cat_table.table_name()} WHERE category_id = %s"
+                with cat_table.dbconn.conn.cursor() as cur:
+                    cur.execute(sql, (category_id,))
+                    cat_table.dbconn.conn.commit()
+                    print(f"\n✅ Категория и все её лекарства удалены.")
                 return
             else:
                 print("Неверный номер.")
 
-    def pharmacy_menu(self):
-        """Меню управления аптеками."""
+    def categories_menu(self):
+        """Меню управления категориями."""
         while True:
-            print("\n--- Управление аптеками ---")
-            print("1 - выбрать аптеку для работы с лекарствами")
-            print("2 - просмотр списка аптек")
-            print("3 - добавить аптеку")
-            print("4 - удалить аптеку")
-            print("5 - редактировать аптеку")
+            print("\n--- Управление категориями ---")
+            print("1 - выбрать категорию для работы с лекарствами")
+            print("2 - добавить категорию")
+            print("3 - удалить категорию")
             print("0 - назад в главное меню")
             choice = self.read_next_step()
 
             if choice == "1":
-                self.select_pharmacy_for_drugs()
+                self.select_category_for_drugs()
             elif choice == "2":
-                self.show_pharmacies_list()
+                self.add_category()
             elif choice == "3":
-                self.add_pharmacy()
-            elif choice == "4":
-                self.delete_pharmacy_by_number()
-            elif choice == "5":
-                self.edit_pharmacy_by_number()
+                self.delete_category_by_number()
             elif choice == "0":
                 break
             else:
                 print("Неверный выбор.")
 
-    # ─────────────── РАБОТА С ЛЕКАРСТВАМИ В КОНТЕКСТЕ АПТЕКИ ───────────────
+    # ─────────────── РАБОТА С ЛЕКАРСТВАМИ В КОНТЕКСТЕ КАТЕГОРИИ ───────────────
 
-    def drugs_menu_for_pharmacy(self, pharmacy_id, pharmacy_address):
-        """Меню управления лекарствами для конкретной аптеки."""
+    def drugs_menu_for_category(self, category_id, category_name):
+        """Меню управления лекарствами для конкретной категории."""
         while True:
-            print(f"\n--- Лекарства в аптеке: {pharmacy_address} ---")
+            print(f"\n--- Лекарства в категории: {category_name} ---")
             
             drugs_table = DrugsTable()
-            drugs = drugs_table.find_by_pharmacy(pharmacy_id)
+            drugs = drugs_table.find_by_category(category_id)
 
             if not drugs:
-                print("В этой аптеке пока нет лекарств.")
+                print("В этой категории пока нет лекарств.")
             else:
                 col_names = drugs_table.column_names()
                 name_idx = col_names.index("drug_name")
@@ -272,18 +210,18 @@ class Main:
             if choice == "0":
                 break
             elif choice == "1":
-                self.add_drug_to_pharmacy(pharmacy_id)
+                self.add_drug_to_category(category_id)
             elif choice == "2":
                 if drugs:
-                    self.delete_drug_from_pharmacy(drugs)
+                    self.delete_drug_from_category(drugs)
                 else:
                     print("Нет лекарств для удаления.")
             else:
                 print("Неверный выбор.")
 
-    def add_drug_to_pharmacy(self, pharmacy_id):
-        """Добавляет лекарство в указанную аптеку."""
-        print("\nДобавление нового лекарства в аптеку")
+    def add_drug_to_category(self, category_id):
+        """Добавляет лекарство в указанную категорию."""
+        print("\nДобавление нового лекарства в категорию")
         
         name = input("Название: ").strip()
         if not name:
@@ -318,13 +256,13 @@ class Main:
 
         try:
             DrugsTable().insert_one(
-                name, dosage, qty, manufacturer, instructions, requires_rx, price, pharmacy_id
+                name, dosage, qty, manufacturer, instructions, requires_rx, price, category_id
             )
             print("✅ Лекарство успешно добавлено!")
         except Exception as e:
             print(f"❌ Ошибка при добавлении: {e}")
 
-    def delete_drug_from_pharmacy(self, drugs_list):
+    def delete_drug_from_category(self, drugs_list):
         """Удаляет лекарство по порядковому номеру."""
         drugs_table = DrugsTable()
         col_names = drugs_table.column_names()

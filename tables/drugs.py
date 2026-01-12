@@ -7,6 +7,11 @@ class DrugsTable(DbTable):
     Содержит информацию о названии, дозировке, производителе, цене
     и привязке к аптеке (pharmacy_id).
     """
+    def find_by_category(self, category_id):
+        sql = f"SELECT * FROM {self.table_name()} WHERE category_id = %s ORDER BY drug_name"
+        with self.dbconn.conn.cursor() as cur:
+            cur.execute(sql, (category_id,))
+            return cur.fetchall()
 
     def table_name(self):
         """Возвращает имя таблицы с префиксом (например, 'myapp_drugs')."""
