@@ -51,3 +51,5 @@ class DrugCategoriesTable(DbTable):
         with self.dbconn.conn.cursor() as cur:
             cur.execute(sql, (category_id,))
             return cur.fetchone()
+
+

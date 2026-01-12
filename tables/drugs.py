@@ -149,4 +149,5 @@ class DrugsTable(DbTable):
             ))
             self.dbconn.conn.commit()
             return cur.fetchone()[0]  # Возвращаем сгенерированный drug_id
-        
+
+
