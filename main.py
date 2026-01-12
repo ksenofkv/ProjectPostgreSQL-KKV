@@ -124,7 +124,7 @@ class Main:
         print("✅ Категория успешно добавлена!")
 
     def delete_category_by_number(self):
-        """Удаляет категорию по номеру."""
+        """Удаляет категорию по номеру (с каскадным удалением лекарств)."""
         cat_table = DrugCategoriesTable()
         categories = cat_table.all()
         if not categories:
@@ -145,12 +145,15 @@ class Main:
                 return
             if choice.isdigit() and 1 <= int(choice) <= len(categories):
                 category_id = categories[int(choice) - 1][id_idx]
-                # Удаляем категорию (и все её лекарства через CASCADE)
-                sql = f"DELETE FROM {cat_table.table_name()} WHERE category_id = %s"
-                with cat_table.dbconn.conn.cursor() as cur:
-                    cur.execute(sql, (category_id,))
-                    cat_table.dbconn.conn.commit()
-                    print(f"\n✅ Категория и все её лекарства удалены.")
+                try:
+                    # Удаляем категорию (лекарства удалятся автоматически через CASCADE)
+                    deleted = cat_table.delete_by_id(category_id)
+                    if deleted > 0:
+                        print(f"\n✅ Категория и все её лекарства удалены.")
+                    else:
+                        print("\n❌ Категория не найдена.")
+                except Exception as e:
+                    print(f"\n❌ Ошибка при удалении: {e}")
                 return
             else:
                 print("Неверный номер.")
@@ -302,8 +305,7 @@ class Main:
             print("\nДо свидания!\n")
 
     def test(self):
-        from dbtable import DbTable
-        return DbTable.dbconn.test()
+        return self.connection.test()
 
 
 if __name__ == "__main__":

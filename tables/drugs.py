@@ -5,13 +5,8 @@ class DrugsTable(DbTable):
     """
     Класс для работы с таблицей лекарств в базе данных.
     Содержит информацию о названии, дозировке, производителе, цене
-    и привязке к аптеке (pharmacy_id).
+    и привязке к категории (category_id).
     """
-    def find_by_category(self, category_id):
-        sql = f"SELECT * FROM {self.table_name()} WHERE category_id = %s ORDER BY drug_name"
-        with self.dbconn.conn.cursor() as cur:
-            cur.execute(sql, (category_id,))
-            return cur.fetchall()
 
     def table_name(self):
         """Возвращает имя таблицы с префиксом (например, 'myapp_drugs')."""
@@ -28,7 +23,7 @@ class DrugsTable(DbTable):
             "instructions": ["text"],
             "requires_prescription": ["boolean", "NOT NULL", "DEFAULT FALSE"],
             "price": ["numeric(10,2)", "NOT NULL"],
-            "pharmacy_id": ["integer", "REFERENCES pharmacies(id) ON DELETE CASCADE"]
+            "category_id": ["integer", "NOT NULL", "REFERENCES drug_categories(category_id) ON DELETE CASCADE"]
         }
 
     def primary_key(self):
@@ -65,15 +60,15 @@ class DrugsTable(DbTable):
             cur.execute(sql, (drug_name,))
             return cur.fetchall()
 
-    def find_by_pharmacy(self, pharmacy_id):
+    def find_by_category(self, category_id):
         """
-        Возвращает все лекарства из указанной аптеки.
-        :param pharmacy_id: ID аптеки
+        Возвращает все лекарства из указанной категории.
+        :param category_id: ID категории
         :return: список кортежей
         """
-        sql = f"SELECT * FROM {self.table_name()} WHERE pharmacy_id = %s ORDER BY drug_name"
+        sql = f"SELECT * FROM {self.table_name()} WHERE category_id = %s ORDER BY drug_name"
         with self.dbconn.conn.cursor() as cur:
-            cur.execute(sql, (pharmacy_id,))
+            cur.execute(sql, (category_id,))
             return cur.fetchall()
 
     # ─────────────── Методы удаления ───────────────
@@ -93,7 +88,7 @@ class DrugsTable(DbTable):
     # ─────────────── Методы обновления ───────────────
 
     def update_by_id(self, drug_id, drug_name, dosage, quantity_or_volume,
-                     manufacturer, instructions, requires_prescription, price, pharmacy_id):
+                     manufacturer, instructions, requires_prescription, price, category_id):
         """
         Обновляет данные лекарства по уникальному ID.
         
@@ -105,7 +100,7 @@ class DrugsTable(DbTable):
         :param instructions: инструкция
         :param requires_prescription: требует ли рецепта (True/False)
         :param price: цена (должна быть >= 0)
-        :param pharmacy_id: ID аптеки
+        :param category_id: ID категории
         :return: количество обновлённых строк (0 или 1)
         """
         sql = f"""
@@ -117,13 +112,13 @@ class DrugsTable(DbTable):
                 instructions = %s,
                 requires_prescription = %s,
                 price = %s,
-                pharmacy_id = %s
+                category_id = %s
             WHERE drug_id = %s
         """
         with self.dbconn.conn.cursor() as cur:
             cur.execute(sql, (
                 drug_name, dosage, quantity_or_volume, manufacturer,
-                instructions, requires_prescription, price, pharmacy_id, drug_id
+                instructions, requires_prescription, price, category_id, drug_id
             ))
             self.dbconn.conn.commit()
             return cur.rowcount
@@ -131,17 +126,17 @@ class DrugsTable(DbTable):
     # ─────────────── Метод вставки ───────────────
 
     def insert_one(self, drug_name, dosage, quantity_or_volume,
-                   manufacturer, instructions, requires_prescription, price, pharmacy_id):
+                   manufacturer, instructions, requires_prescription, price, category_id):
         """
         Вставляет новое лекарство в таблицу.
         Поле drug_id генерируется автоматически.
         
-        :param pharmacy_id: ID аптеки, в которой есть лекарство
+        :param category_id: ID категории
         :return: ID вставленного лекарства
         """
         cols = [
             "drug_name", "dosage", "quantity_or_volume", "manufacturer",
-            "instructions", "requires_prescription", "price", "pharmacy_id"
+            "instructions", "requires_prescription", "price", "category_id"
         ]
         placeholders = ", ".join(["%s"] * len(cols))
         col_list = ", ".join(cols)
@@ -150,7 +145,7 @@ class DrugsTable(DbTable):
         with self.dbconn.conn.cursor() as cur:
             cur.execute(sql, (
                 drug_name, dosage, quantity_or_volume, manufacturer,
-                instructions, requires_prescription, price, pharmacy_id
+                instructions, requires_prescription, price, category_id
             ))
             self.dbconn.conn.commit()
             return cur.fetchone()[0]  # Возвращаем сгенерированный drug_id

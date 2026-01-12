@@ -29,3 +29,14 @@ class DrugCategoriesTable(DbTable):
             cur.execute(sql, vals)
             self.dbconn.conn.commit()
             return cur.fetchone()[0]
+
+    def delete_by_id(self, category_id):
+        """Удаляет категорию по ID.
+        :param category_id: ID категории
+        :return: количество удалённых строк (0 или 1)
+        """
+        sql = f"DELETE FROM {self.table_name()} WHERE category_id = %s"
+        with self.dbconn.conn.cursor() as cur:
+            cur.execute(sql, (category_id,))
+            self.dbconn.conn.commit()
+            return cur.rowcount
