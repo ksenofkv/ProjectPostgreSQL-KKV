@@ -21,7 +21,6 @@ class Main:
     connection = DbConnection(config)
 
     def __init__(self):
-        # Устанавливаем соединение для всех таблиц
         from dbtable import DbTable
         DbTable.dbconn = self.connection
 
@@ -37,11 +36,9 @@ class Main:
         ph = PharmaciesTable()
         dr = DrugsTable()
 
-        # Добавляем аптеки
         ph1_id = ph.insert_one(["ул. Ленина, 10", "+74951234567", "Охотный Ряд"])
         ph2_id = ph.insert_one(["пр. Мира, 25", "+74959876543", "Комсомольская"])
 
-        # Добавляем лекарства, привязанные к аптекам
         dr.insert_one("Парацетамол", "500 мг", "20 таблеток", "Фармстандарт",
                       "Принимать по 1 таблетке каждые 6 часов", False, 50.00, ph1_id)
         dr.insert_one("Аспирин", "300 мг", "10 таблеток", "Байер",
@@ -59,9 +56,8 @@ class Main:
     def show_main_menu(self):
         menu = """\nДобро пожаловать в систему управления аптекой!
 Основное меню:
-    1 - просмотр лекарств;
-    2 - управление аптеками;
-    3 - сброс и инициализация таблиц;
+    1 - управление аптеками;
+    2 - сброс и инициализация таблиц;
     9 - выход."""
         print(menu)
 
@@ -69,38 +65,39 @@ class Main:
         return input("=> ").strip()
 
     def after_main_menu(self, next_step):
-        if next_step == "3":
+        if next_step == "2":
             self.db_drop()
             self.db_init()
             self.db_insert_somethings()
             print("\nТаблицы созданы заново!")
             return "0"
-        elif next_step == "2":
+        elif next_step == "1":
             self.pharmacy_menu()
             return "0"
-        elif next_step == "1":
-            return "1"
         elif next_step == "9":
             return "9"
         else:
-            print("\nВыбрано неверное число! Повторите ввод!")
+            print("\nНеверный выбор!")
             return "0"
 
     # ─────────────── РАБОТА С АПТЕКАМИ ───────────────
 
-    def show_pharmacies(self):
-        """Показывает список аптек с порядковыми номерами. Возвращает список записей."""
-        print("\nСписок аптек:")
+    def show_pharmacies_list(self):
+        """Показывает только список аптек без возврата данных."""
         ph_table = PharmaciesTable()
         pharmacies = ph_table.all()
-
         if not pharmacies:
             print("Нет аптек в базе.")
-            return []
+            return
 
+        col_names = ph_table.column_names()
+        addr_idx = col_names.index("address")
+        phone_idx = col_names.index("phone_number")
+        metro_idx = col_names.index("nearest_metro_station")
+
+        print("\nСписок аптек:")
         for i, ph in enumerate(pharmacies, 1):
-            print(f"{i}. Адрес: {ph[1]} | Телефон: {ph[2]} | Метро: {ph[3]}")
-        return pharmacies
+            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
 
     def add_pharmacy(self):
         """Добавляет новую аптеку."""
@@ -118,17 +115,28 @@ class Main:
 
     def delete_pharmacy_by_number(self):
         """Удаляет аптеку по порядковому номеру (с каскадным удалением лекарств)."""
-        pharmacies = self.show_pharmacies()
+        ph_table = PharmaciesTable()
+        pharmacies = ph_table.all()
         if not pharmacies:
+            print("Нет аптек в базе.")
             return
+
+        col_names = ph_table.column_names()
+        id_idx = col_names.index("id")
+        addr_idx = col_names.index("address")
+        phone_idx = col_names.index("phone_number")
+        metro_idx = col_names.index("nearest_metro_station")
+
+        print("\nСписок аптек:")
+        for i, ph in enumerate(pharmacies, 1):
+            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
 
         while True:
             choice = input("\nВведите номер аптеки для удаления (0 - отмена): ").strip()
             if choice == "0":
                 return
             if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
-                pharmacy_id = pharmacies[int(choice) - 1][0]  # id из записи
-                ph_table = PharmaciesTable()
+                pharmacy_id = pharmacies[int(choice) - 1][id_idx]
                 ph_table.delete_with_drugs(pharmacy_id)
                 print(f"\n✅ Аптека №{choice} и все её лекарства удалены.")
                 return
@@ -137,9 +145,21 @@ class Main:
 
     def edit_pharmacy_by_number(self):
         """Редактирует аптеку по порядковому номеру."""
-        pharmacies = self.show_pharmacies()
+        ph_table = PharmaciesTable()
+        pharmacies = ph_table.all()
         if not pharmacies:
+            print("Нет аптек в базе.")
             return
+
+        col_names = ph_table.column_names()
+        id_idx = col_names.index("id")
+        addr_idx = col_names.index("address")
+        phone_idx = col_names.index("phone_number")
+        metro_idx = col_names.index("nearest_metro_station")
+
+        print("\nСписок аптек:")
+        for i, ph in enumerate(pharmacies, 1):
+            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
 
         while True:
             choice = input("\nВведите номер аптеки для редактирования (0 - отмена): ").strip()
@@ -147,17 +167,46 @@ class Main:
                 return
             if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
                 ph = pharmacies[int(choice) - 1]
-                pharmacy_id = ph[0]
+                pharmacy_id = ph[id_idx]
 
                 print(f"\nРедактирование аптеки №{choice}")
-                new_address = input(f"Новый адрес ({ph[1]}): ").strip() or ph[1]
-                new_phone = input(f"Новый телефон ({ph[2]}): ").strip() or ph[2]
-                new_metro = input(f"Новое метро ({ph[3]}): ").strip() or ph[3]
+                new_address = input(f"Новый адрес ({ph[addr_idx]}): ").strip() or ph[addr_idx]
+                new_phone = input(f"Новый телефон ({ph[phone_idx]}): ").strip() or ph[phone_idx]
+                new_metro = input(f"Новое метро ({ph[metro_idx]}): ").strip() or ph[metro_idx]
 
-                ph_table = PharmaciesTable()
-                # ИСПРАВЛЕНО: используем существующий метод update_by_id
                 ph_table.update_by_id(pharmacy_id, new_address, new_phone, new_metro)
                 print("\n✅ Аптека успешно обновлена!")
+                return
+            else:
+                print("Неверный номер.")
+
+    def select_pharmacy_for_drugs(self):
+        """Позволяет выбрать аптеку для управления лекарствами."""
+        ph_table = PharmaciesTable()
+        pharmacies = ph_table.all()
+        if not pharmacies:
+            print("Нет аптек в базе.")
+            return
+
+        col_names = ph_table.column_names()
+        id_idx = col_names.index("id")
+        addr_idx = col_names.index("address")
+        phone_idx = col_names.index("phone_number")
+        metro_idx = col_names.index("nearest_metro_station")
+
+        print("\nСписок аптек:")
+        for i, ph in enumerate(pharmacies, 1):
+            print(f"{i}. Адрес: {ph[addr_idx]} | Телефон: {ph[phone_idx]} | Метро: {ph[metro_idx]}")
+
+        while True:
+            choice = input("\nВыберите номер аптеки для работы с лекарствами (0 - отмена): ").strip()
+            if choice == "0":
+                return
+            if choice.isdigit() and 1 <= int(choice) <= len(pharmacies):
+                ph = pharmacies[int(choice) - 1]
+                pharmacy_id = ph[id_idx]
+                pharmacy_address = ph[addr_idx]
+                self.drugs_menu_for_pharmacy(pharmacy_id, pharmacy_address)
                 return
             else:
                 print("Неверный номер.")
@@ -166,107 +215,135 @@ class Main:
         """Меню управления аптеками."""
         while True:
             print("\n--- Управление аптеками ---")
-            print("1 - просмотр списка аптек")
-            print("2 - добавить аптеку")
-            print("3 - удалить аптеку")
-            print("4 - редактировать аптеку")
+            print("1 - выбрать аптеку для работы с лекарствами")
+            print("2 - просмотр списка аптек")
+            print("3 - добавить аптеку")
+            print("4 - удалить аптеку")
+            print("5 - редактировать аптеку")
             print("0 - назад в главное меню")
             choice = self.read_next_step()
 
             if choice == "1":
-                self.show_pharmacies()
+                self.select_pharmacy_for_drugs()
             elif choice == "2":
-                self.add_pharmacy()
+                self.show_pharmacies_list()
             elif choice == "3":
-                self.delete_pharmacy_by_number()
+                self.add_pharmacy()
             elif choice == "4":
+                self.delete_pharmacy_by_number()
+            elif choice == "5":
                 self.edit_pharmacy_by_number()
             elif choice == "0":
                 break
             else:
                 print("Неверный выбор.")
 
-    # ─────────────── РАБОТА С ЛЕКАРСТВАМИ ───────────────
+    # ─────────────── РАБОТА С ЛЕКАРСТВАМИ В КОНТЕКСТЕ АПТЕКИ ───────────────
 
-    def show_drugs(self):
-        """Просмотр списка лекарств."""
-        print("\nПросмотр списка лекарств!")
+    def drugs_menu_for_pharmacy(self, pharmacy_id, pharmacy_address):
+        """Меню управления лекарствами для конкретной аптеки."""
+        while True:
+            print(f"\n--- Лекарства в аптеке: {pharmacy_address} ---")
+            
+            drugs_table = DrugsTable()
+            drugs = drugs_table.find_by_pharmacy(pharmacy_id)
 
-        drugs_table = DrugsTable()
-        lst = drugs_table.all()
-        if not lst:
-            print("Нет лекарств в базе.")
-            menu = """\nДальнейшие операции:
-    0 - возврат в главное меню;
-    9 - выход."""
-            print(menu)
+            if not drugs:
+                print("В этой аптеке пока нет лекарств.")
+            else:
+                col_names = drugs_table.column_names()
+                name_idx = col_names.index("drug_name")
+                dosage_idx = col_names.index("dosage")
+                qty_idx = col_names.index("quantity_or_volume")
+                price_idx = col_names.index("price")
+
+                for i, drug in enumerate(drugs, 1):
+                    dosage = drug[dosage_idx] or ""
+                    qty = drug[qty_idx] or ""
+                    price = f"{float(drug[price_idx]):.2f}"
+                    print(f"{i}. {drug[name_idx]} | Дозировка: {dosage} | Кол-во: {qty} | Цена: {price} руб.")
+
+            print("\nОперации:")
+            print("1 - добавить лекарство")
+            print("2 - удалить лекарство")
+            print("0 - назад")
+            choice = self.read_next_step()
+
+            if choice == "0":
+                break
+            elif choice == "1":
+                self.add_drug_to_pharmacy(pharmacy_id)
+            elif choice == "2":
+                if drugs:
+                    self.delete_drug_from_pharmacy(drugs)
+                else:
+                    print("Нет лекарств для удаления.")
+            else:
+                print("Неверный выбор.")
+
+    def add_drug_to_pharmacy(self, pharmacy_id):
+        """Добавляет лекарство в указанную аптеку."""
+        print("\nДобавление нового лекарства в аптеку")
+        
+        name = input("Название: ").strip()
+        if not name:
+            print("Название обязательно!")
             return
 
-        # Получаем список имён колонок
-        col_names = drugs_table.column_names()
-        
-        # Находим индексы нужных колонок
-        drug_name_idx = col_names.index("drug_name")
-        dosage_idx = col_names.index("dosage")
-        qty_idx = col_names.index("quantity_or_volume")
-        manuf_idx = col_names.index("manufacturer")
-        price_idx = col_names.index("price")
-        pharmacy_id_idx = col_names.index("pharmacy_id")
+        dosage = input("Дозировка (опционально): ").strip() or None
+        qty = input("Количество/объём (опционально): ").strip() or None
+        manufacturer = input("Производитель (опционально): ").strip() or None
+        instructions = input("Инструкция (опционально): ").strip() or None
 
-        # Получаем названия аптек
-        ph_table = PharmaciesTable()
-        pharmacies = {row[0]: row[1] for row in ph_table.all()}  # {id: address}
+        while True:
+            rx = input("Требует рецепта? (y/n): ").strip().lower()
+            if rx in ('y', 'yes', '1'):
+                requires_rx = True
+                break
+            elif rx in ('n', 'no', '0'):
+                requires_rx = False
+                break
+            else:
+                print("Введите y или n")
 
-        # Вычисляем ширину колонок
-        max_name = max(len(str(row[drug_name_idx])) for row in lst)
-        max_dosage = max(len(str(row[dosage_idx] or "")) for row in lst)
-        max_qty = max(len(str(row[qty_idx] or "")) for row in lst)
-        max_manuf = max(len(str(row[manuf_idx] or "")) for row in lst)
-        max_pharmacy = max(len(pharmacies.get(row[pharmacy_id_idx], "—")) for row in lst)
-        max_price = max(len(f"{float(row[price_idx]):.2f}") for row in lst)
+        while True:
+            price_str = input("Цена (>=0): ").strip()
+            try:
+                price = float(price_str)
+                if price < 0:
+                    raise ValueError
+                break
+            except ValueError:
+                print("Цена должна быть числом >= 0")
 
-        col_widths = {
-            'name': max(max_name, len('Название')) + 2,
-            'dosage': max(max_dosage, len('Дозировка')) + 2,
-            'qty': max(max_qty, len('Кол-во/Объём')) + 2,
-            'manuf': max(max_manuf, len('Производитель')) + 2,
-            'pharmacy': max(max_pharmacy, len('Аптека')) + 2,
-            'price': max(max_price, len('Цена')) + 2,
-        }
-
-        header = (
-            f"{'Название':<{col_widths['name']}}"
-            f"{'Дозировка':<{col_widths['dosage']}}"
-            f"{'Кол-во/Объём':<{col_widths['qty']}}"
-            f"{'Производитель':<{col_widths['manuf']}}"
-            f"{'Аптека':<{col_widths['pharmacy']}}"
-            f"{'Цена':<{col_widths['price']}}"
-        )
-        print(f'\n{header}')
-        print("-" * len(header))
-
-        for row in lst:
-            pharmacy_addr = pharmacies.get(row[pharmacy_id_idx], "—")
-            price_str = f"{float(row[price_idx]):.2f}"
-            print(
-                f"{row[drug_name_idx]:<{col_widths['name']}}"
-                f"{(row[dosage_idx] or ''):<{col_widths['dosage']}}"
-                f"{(row[qty_idx] or ''):<{col_widths['qty']}}"
-                f"{(row[manuf_idx] or ''):<{col_widths['manuf']}}"
-                f"{pharmacy_addr:<{col_widths['pharmacy']}}"
-                f"{price_str}".ljust(col_widths['price'])
+        try:
+            DrugsTable().insert_one(
+                name, dosage, qty, manufacturer, instructions, requires_rx, price, pharmacy_id
             )
+            print("✅ Лекарство успешно добавлено!")
+        except Exception as e:
+            print(f"❌ Ошибка при добавлении: {e}")
 
-        menu = """\nДальнейшие операции:
-    0 - возврат в главное меню;
-    9 - выход."""
-        print(menu)
+    def delete_drug_from_pharmacy(self, drugs_list):
+        """Удаляет лекарство по порядковому номеру."""
+        drugs_table = DrugsTable()
+        col_names = drugs_table.column_names()
+        drug_id_idx = col_names.index("drug_id")
 
-    def after_show_drugs(self, next_step):
-        if next_step not in ("0", "9"):
-            print("\nНеверный выбор!")
-            return "1"
-        return next_step
+        while True:
+            choice = input("\nВведите номер лекарства для удаления (0 - отмена): ").strip()
+            if choice == "0":
+                return
+            if choice.isdigit() and 1 <= int(choice) <= len(drugs_list):
+                drug_id = drugs_list[int(choice) - 1][drug_id_idx]
+                deleted = DrugsTable().delete_by_id(drug_id)
+                if deleted > 0:
+                    print(f"\n✅ Лекарство №{choice} удалено.")
+                else:
+                    print("\n❌ Не удалось удалить лекарство.")
+                return
+            else:
+                print("Неверный номер.")
 
     # ─────────────── ОСНОВНОЙ ЦИКЛ ───────────────
 
@@ -278,10 +355,6 @@ class Main:
                     self.show_main_menu()
                     next_step = self.read_next_step()
                     current_menu = self.after_main_menu(next_step)
-                elif current_menu == "1":
-                    self.show_drugs()
-                    next_step = self.read_next_step()
-                    current_menu = self.after_show_drugs(next_step)
             print("\nДо свидания!\n")
         except KeyboardInterrupt:
             print("\n\nПрограмма прервана пользователем (Ctrl+C)")
@@ -295,8 +368,7 @@ class Main:
         return DbTable.dbconn.test()
 
 
-# Запуск программы
 if __name__ == "__main__":
     m = Main()
-    # m.test()  # Раскомментируйте для теста подключения
+    # m.test()
     m.main_cycle()
