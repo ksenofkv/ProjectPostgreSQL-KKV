@@ -13,5 +13,6 @@
 
 # Запуск 
 ~Bash
+
 python main.py
 
