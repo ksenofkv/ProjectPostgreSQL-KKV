@@ -224,7 +224,14 @@ class Main:
 
     def add_drug_to_category(self, category_id):
         """Добавляет лекарство в указанную категорию."""
-        print("\nДобавление нового лекарства в категорию")
+        # Проверяем существование категории
+        cat_table = DrugCategoriesTable()
+        category = cat_table.find_by_id(category_id)
+        if not category:
+            print("❌ Ошибка: выбранная категория не существует!")
+            return
+
+        print(f"\nДобавление нового лекарства в категорию: {category[1]}")
         
         name = input("Название: ").strip()
         if not name:

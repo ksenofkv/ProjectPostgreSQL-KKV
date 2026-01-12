@@ -22,7 +22,7 @@ class DrugsTable(DbTable):
             "manufacturer": ["varchar(255)"],
             "instructions": ["text"],
             "requires_prescription": ["boolean", "NOT NULL", "DEFAULT FALSE"],
-            "price": ["numeric(10,2)", "NOT NULL"],
+            "price": ["numeric(10,2)", "NOT NULL"],  # ← CHECK удалён отсюда
             "category_id": ["integer", "NOT NULL", "REFERENCES drug_categories(category_id) ON DELETE CASCADE"]
         }
 
@@ -33,7 +33,7 @@ class DrugsTable(DbTable):
     def table_constraints(self):
         """Ограничения уровня таблицы."""
         return [
-            "CHECK (price >= 0)"
+            "CHECK (price >= 0)"  # ← оставлено здесь
         ]
 
     # ─────────────── Методы поиска ───────────────

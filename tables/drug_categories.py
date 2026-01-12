@@ -40,3 +40,14 @@ class DrugCategoriesTable(DbTable):
             cur.execute(sql, (category_id,))
             self.dbconn.conn.commit()
             return cur.rowcount
+
+    def find_by_id(self, category_id):
+        """
+        Находит категорию по ID.
+        :param category_id: ID категории
+        :return: кортеж с данными или None, если не найдено
+        """
+        sql = f"SELECT * FROM {self.table_name()} WHERE category_id = %s"
+        with self.dbconn.conn.cursor() as cur:
+            cur.execute(sql, (category_id,))
+            return cur.fetchone()
